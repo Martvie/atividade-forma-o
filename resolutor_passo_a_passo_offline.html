@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathStep - Resolutor Offline</title>
+    
+    <!-- Configuração Dinâmica do Tailwind para suportar os Temas -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        theme: {
+                            primary: 'var(--primary)',
+                            hover: 'var(--hover)',
+                            light: 'var(--light)',
+                            bg: 'var(--bg)',
+                            page: 'var(--page)',
+                            text: 'var(--text)',
+                            border: 'var(--border)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    
+    <style>
+        /* TEMA PADRÃO (Índigo/Slate) */
+        :root {
+            --primary: #4f46e5;
+            --hover: #4338ca;
+            --light: #e0e7ff;
+            --bg: #eef2ff;
+            --page: #f8fafc;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        /* TEMA STITCH (Azul/Ciano Havaiano) */
+        body[data-theme="stitch"] {
+            --primary: #0284c7; 
+            --hover: #0369a1;
+            --light: #bae6fd;
+            --bg: #e0f2fe;
+            --page: #f0f9ff;
+            --text: #0c4a6e;
+            --border: #7dd3fc;
+        }
+
+        /* TEMA HARRY POTTER (Grifinória Vermelho/Dourado/Pergaminho) */
+        body[data-theme="potter"] {
+            --primary: #991b1b; 
+            --hover: #7f1d1d;
+            --light: #fde68a; 
+            --bg: #fffbeb; 
+            --page: #f5f5f4; 
+            --text: #44403c;
+            --border: #d6d3d1;
+        }
+
+        .hidden-element { display: none !important; }
+        .katex-display { margin: 0 !important; }
+        
+        /* Custom scrollbar adaptativa */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+        
+        /* Transição suave ao trocar de tema */
+        body, div, span, button, header, main, aside, section {
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-theme-page font-sans text-theme-text min-h-screen flex flex-col">
+
+    <header class="bg-white shadow-sm border-b border-theme-border sticky top-0 z-20">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-4">
+            
+            <!-- Logo e Título -->
+            <div class="flex items-center gap-3">
+                <div id="appIcon" class="bg-theme-primary text-white w-10 h-10 flex items-center justify-center rounded-xl shadow-sm text-xl">
+                    📐
+                </div>
+                <h1 class="text-xl font-bold tracking-tight">MathStep</h1>
+            </div>
+
+            <!-- Navegação (Calculadora vs Propriedades) -->
+            <nav class="flex bg-theme-bg p-1 rounded-xl">
+                <button id="navCalc" class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-white shadow-sm text-theme-primary transition-all">
+                    Calculadora
+                </button>
+                <button id="navProps" class="px-4 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:text-theme-primary transition-all">
+                    Fórmulas
+                </button>
+            </nav>
+
+            <!-- Seletor de Temas -->
+            <div class="flex items-center gap-2 text-sm bg-slate-100 p-1 rounded-xl">
+                <button onclick="setTheme('default', '📐')" class="p-1.5 rounded-lg hover:bg-white hover:shadow-sm transition-all" title="Tema Padrão">📐</button>
+                <button onclick="setTheme('stitch', '🌺')" class="p-1.5 rounded-lg hover:bg-white hover:shadow-sm transition-all" title="Tema Stitch">🌺</button>
+                <button onclick="setTheme('potter', '⚡')" class="p-1.5 rounded-lg hover:bg-white hover:shadow-sm transition-all" title="Tema Harry Potter">⚡</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-6xl mx-auto w-full px-4 py-8 relative">
+        
+        <!-- ========================================== -->
+        <!-- VIEW 1: CALCULADORA (Aba Principal)        -->
+        <!-- ========================================== -->
+        <div id="calculatorView" class="flex flex-col lg:flex-row gap-8">
+            <div class="flex-1 flex flex-col gap-6 w-full">
+                
+                <section class="bg-white rounded-3xl shadow-sm border border-theme-border p-6 sm:p-8">
+                    <h2 class="text-2xl font-bold mb-2">Qual expressão vamos resolver?</h2>
+                    <p class="text-slate-500 mb-6 text-sm">O sistema foi treinado para resolver <strong>potências</strong>, <strong>logaritmos</strong> e equações.</p>
+                    
+                    <div class="relative mb-4">
+                        <input 
+                            id="mathInput"
+                            type="text" 
+                            class="w-full text-lg p-4 pl-5 pr-16 border-2 border-theme-border rounded-2xl focus:outline-none focus:border-theme-primary focus:ring-4 focus:ring-theme-bg transition-all font-mono"
+                            placeholder="Ex: 2^3 * 2^4 ou log_2(8) + log_2(4)"
+                        />
+                        <button 
+                            id="btnSolve"
+                            class="absolute right-2 top-2 bottom-2 bg-theme-primary hover:bg-theme-hover text-white rounded-xl px-5 flex items-center justify-center transition-colors shadow-sm"
+                        >
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                            </span>
+                        </button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                        <span class="text-slate-400 font-medium">Testar:</span>
+                        <button class="example-btn bg-theme-bg hover:bg-theme-light text-theme-text px-3 py-1.5 rounded-lg transition-colors font-mono">2^3 * 2^4</button>
+                        <button class="example-btn bg-theme-bg hover:bg-theme-light text-theme-text px-3 py-1.5 rounded-lg transition-colors font-mono">log_2(8) + log_2(4)</button>
+                        <button class="example-btn bg-theme-bg hover:bg-theme-light text-theme-text px-3 py-1.5 rounded-lg transition-colors font-mono">2^x = 16</button>
+                        <button class="example-btn bg-theme-bg hover:bg-theme-light text-theme-text px-3 py-1.5 rounded-lg transition-colors font-mono">(3^2)^4 / 3^5</button>
+                    </div>
+
+                    <div id="errorMessage" class="hidden-element mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm flex items-start gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                        <p id="errorText">Expressão não reconhecida pelo motor atual.</p>
+                    </div>
+                </section>
+
+                <section id="resultsSection" class="hidden-element bg-white rounded-3xl shadow-sm border border-theme-border overflow-hidden">
+                    <div class="bg-theme-page border-b border-theme-border p-5 sm:px-8 flex items-center justify-between">
+                        <h3 class="font-bold flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-theme-primary"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            Resolução Passo a Passo
+                        </h3>
+                    </div>
+                    <div class="p-6 sm:p-8">
+                        <div id="timelineContainer" class="relative border-l-2 border-theme-border ml-4 space-y-8 pb-4">
+                            <!-- Injetado via JS -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <aside id="sidebarSection" class="hidden-element w-full lg:w-[22rem] flex-shrink-0 flex flex-col gap-4">
+                <div class="sticky top-24 bg-gradient-to-b from-theme-bg to-white rounded-3xl border border-theme-light p-6">
+                    <h3 class="font-bold mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-theme-primary"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                        Teoria Aplicada
+                    </h3>
+                    <p class="text-sm text-theme-primary mb-5 opacity-80">
+                        Propriedades identificadas na resolução:
+                    </p>
+                    <div id="propertiesContainer" class="flex flex-col gap-4 max-h-[65vh] overflow-y-auto pr-2">
+                        <!-- Injetado via JS -->
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: GALERIA DE FÓRMULAS (Aba Secundária) -->
+        <!-- ========================================== -->
+        <div id="propertiesView" class="hidden-element">
+            <div class="mb-8 text-center sm:text-left">
+                <h2 class="text-3xl font-bold mb-3">Guia de Propriedades Matemáticas</h2>
+                <p class="text-slate-500 max-w-2xl">Consulte as principais regras de potenciação e logaritmos para mandar bem nas contas. Use os exemplos para fixar o conhecimento!</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                <!-- Card 1 -->
+                <div class="bg-white p-6 rounded-3xl border border-theme-border shadow-sm hover:shadow-md transition-shadow">
+                    <h3 class="font-bold mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-theme-primary"></span>
+                        Produto de Potências
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-4 h-10">Multiplicação de potências de mesma base: repete a base e soma os expoentes.</p>
+                    <div class="bg-theme-bg text-theme-primary p-4 rounded-2xl flex flex-col items-center gap-3">
+                        <div class="latex-static" data-expr="a^m \cdot a^n = a^{m+n}"></div>
+                        <div class="w-full h-px bg-theme-light"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest opacity-60">Exemplo</span>
+                        <div class="latex-static" data-expr="2^3 \cdot 2^4 = 2^7"></div>
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-white p-6 rounded-3xl border border-theme-border shadow-sm hover:shadow-md transition-shadow">
+                    <h3 class="font-bold mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-theme-primary"></span>
+                        Quociente de Potências
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-4 h-10">Divisão de potências de mesma base: repete a base e subtrai os expoentes.</p>
+                    <div class="bg-theme-bg text-theme-primary p-4 rounded-2xl flex flex-col items-center gap-3">
+                        <div class="latex-static" data-expr="\frac{a^m}{a^n} = a^{m-n}"></div>
+                        <div class="w-full h-px bg-theme-light"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest opacity-60">Exemplo</span>
+                        <div class="latex-static" data-expr="\frac{5^6}{5^2} = 5^4"></div>
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-white p-6 rounded-3xl border border-theme-border shadow-sm hover:shadow-md transition-shadow">
+                    <h3 class="font-bold mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-theme-primary"></span>
+                        Potência de Potência
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-4 h-10">Ao elevar uma potência a outro expoente, conservamos a base e multiplicamos os expoentes.</p>
+                    <div class="bg-theme-bg text-theme-primary p-4 rounded-2xl flex flex-col items-center gap-3">
+                        <div class="latex-static" data-expr="(a^m)^n = a^{m \cdot n}"></div>
+                        <div class="w-full h-px bg-theme-light"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest opacity-60">Exemplo</span>
+                        <div class="latex-static" data-expr="(3^2)^4 = 3^8"></div>
+                    </div>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="bg-white p-6 rounded-3xl border border-theme-border shadow-sm hover:shadow-md transition-shadow">
+                    <h3 class="font-bold mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-theme-primary"></span>
+                        Produto (Mesmo Expoente)
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-4 h-10">Na multiplicação com bases diferentes mas mesmo expoente, multiplicamos as bases.</p>
+                    <div class="bg-theme-bg text-theme-primary p-4 rounded-2xl flex flex-col items-center gap-3">
+                        <div class="latex-static" data-expr="a^n \cdot b^n = (a \cdot b)^n"></div>
+                        <div class="w-full h-px bg-theme-light"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest opacity-60">Exemplo</span>
+                        <div class="latex-static" data-expr="2^3 \cdot 5^3 = 10^3"></div>
+                    </div>
+                </div>
+
+                <!-- Card 5 -->
+                <div class="bg-white p-6 rounded-3xl border border-theme-border shadow-sm hover:shadow-md transition-shadow">
+                    <h3 class="font-bold mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-theme-primary"></span>
+                        Soma de Logaritmos
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-4 h-10">A soma de dois logaritmos de mesma base é o logaritmo da multiplicação dos valores.</p>
+                    <div class="bg-theme-bg text-theme-primary p-4 rounded-2xl flex flex-col items-center gap-3">
+                        <div class="latex-static" data-expr="\log_b(x) + \log_b(y) = \log_b(x \cdot y)"></div>
+                        <div class="w-full h-px bg-theme-light"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest opacity-60">Exemplo</span>
+                        <div class="latex-static" data-expr="\log_2(4) + \log_2(8) = \log_2(32)"></div>
+                    </div>
+                </div>
+
+                <!-- Card 6 -->
+                <div class="bg-white p-6 rounded-3xl border border-theme-border shadow-sm hover:shadow-md transition-shadow">
+                    <h3 class="font-bold mb-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-theme-primary"></span>
+                        Igualdade Exponencial
+                    </h3>
+                    <p class="text-sm text-slate-500 mb-4 h-10">Se duas potências de mesma base são iguais, então seus expoentes obrigatoriamente são iguais.</p>
+                    <div class="bg-theme-bg text-theme-primary p-4 rounded-2xl flex flex-col items-center gap-3">
+                        <div class="latex-static" data-expr="a^x = a^y \iff x = y"></div>
+                        <div class="w-full h-px bg-theme-light"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest opacity-60">Exemplo</span>
+                        <div class="latex-static" data-expr="2^x = 2^4 \implies x = 4"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // =====================================================================
+        // LÓGICA DE INTERFACE (Temas e Abas)
+        // =====================================================================
+        
+        // Alternar Temas
+        function setTheme(themeName, iconStr) {
+            document.body.setAttribute('data-theme', themeName);
+            document.getElementById('appIcon').innerText = iconStr;
+        }
+
+        // Alternar Abas (Navegação)
+        const btnCalc = document.getElementById('navCalc');
+        const btnProps = document.getElementById('navProps');
+        const viewCalc = document.getElementById('calculatorView');
+        const viewProps = document.getElementById('propertiesView');
+
+        btnCalc.addEventListener('click', () => {
+            viewCalc.classList.remove('hidden-element');
+            viewProps.classList.add('hidden-element');
+            
+            btnCalc.className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-white shadow-sm text-theme-primary transition-all";
+            btnProps.className = "px-4 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:text-theme-primary transition-all";
+        });
+
+        btnProps.addEventListener('click', () => {
+            viewCalc.classList.add('hidden-element');
+            viewProps.classList.remove('hidden-element');
+            
+            btnProps.className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-white shadow-sm text-theme-primary transition-all";
+            btnCalc.className = "px-4 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:text-theme-primary transition-all";
+            
+            // Renderizar as fórmulas estáticas da galeria se ainda não foram
+            renderStaticLatex();
+        });
+
+        function renderStaticLatex() {
+            const elements = document.querySelectorAll('.latex-static:not(.rendered)');
+            elements.forEach(el => {
+                const expr = el.getAttribute('data-expr');
+                katex.render(expr, el, { displayMode: false, throwOnError: false });
+                el.classList.add('rendered');
+            });
+        }
+
+
+        // =====================================================================
+        // MOTOR MATEMÁTICO LOCAL
+        // =====================================================================
+
+        const MathEngine = {
+            solve(expression) {
+                let steps = [];
+                let current = expression.replace(/\s+/g, '');
+                current = current.replace(/log(\d+)\(/g, 'log_$1(');
+                let maxIterations = 25; 
+                
+                steps.push({
+                    stepDescription: "Expressão inicial.",
+                    equationState: current,
+                    propertyUsed: null,
+                    propertyDescription: null,
+                    propertyFormula: null
+                });
+
+                for (let i = 0; i < maxIterations; i++) {
+                    let stepResult = this.applyNextRule(current);
+                    if (!stepResult) break;
+                    steps.push({
+                        stepDescription: stepResult.desc,
+                        equationState: stepResult.newExpr,
+                        propertyUsed: stepResult.prop,
+                        propertyDescription: stepResult.propDesc,
+                        propertyFormula: stepResult.formula
+                    });
+                    current = stepResult.newExpr;
+                }
+                return steps;
+            },
+
+            getPerfectPower(n) {
+                n = parseInt(n);
+                if (isNaN(n) || n <= 3) return null;
+                for (let b = 2; b <= Math.sqrt(n); b++) {
+                    let e = 1; let temp = b;
+                    while (temp < n) { temp *= b; e++; }
+                    if (temp === n) return { base: b, exp: e };
+                }
+                return null;
+            },
+
+            getPerfectPowerForBase(n, base) {
+                n = parseInt(n); base = parseInt(base);
+                if (isNaN(n) || isNaN(base) || base < 2) return null;
+                let e = 1; let temp = base;
+                while (temp < n) { temp *= base; e++; }
+                if (temp === n) return { base: base, exp: e };
+                return null;
+            },
+
+            applyNextRule(expr) {
+                let match;
+
+                // Fatoração Equação
+                match = expr.match(/^(\d+)\^([^=]+)=(\d+)$/);
+                if (match) {
+                    let base = parseInt(match[1]); let rightVal = parseInt(match[3]);
+                    let factors = this.getPerfectPowerForBase(rightVal, base);
+                    if (factors) {
+                        return {
+                            newExpr: `${base}^${match[2]}=${base}^${factors.exp}`,
+                            desc: `Fatoramos o número ${rightVal} para ter a mesma base (${base}). Sabemos que ${rightVal} = ${base}^${factors.exp}.`,
+                            prop: "Fatoração na Equação",
+                            propDesc: "Buscamos igualar as bases de ambos os lados da igualdade.",
+                            formula: "a^x = y \\implies a^x = a^n"
+                        };
+                    }
+                }
+
+                // Igualdade Bases
+                match = expr.match(/^(\d+)\^([^=]+)=(\1)\^([^=]+)$/);
+                if (match) {
+                    let exp1 = match[2].replace(/^\((.*)\)$/, '$1');
+                    let exp2 = match[4].replace(/^\((.*)\)$/, '$1');
+                    return {
+                        newExpr: `${exp1}=${exp2}`,
+                        desc: `Como as bases são iguais (${match[1]}), nós as cortamos e igualamos apenas os expoentes.`,
+                        prop: "Igualdade Exponencial",
+                        propDesc: "Potências iguais de mesma base implicam em expoentes iguais.",
+                        formula: "a^x = a^y \\iff x = y"
+                    };
+                }
+
+                // Potência de Potência
+                match = expr.match(/\(([a-zA-Z0-9]+)\^(\([^)]+\)|[a-zA-Z0-9]+)\)\^(\([^)]+\)|[a-zA-Z0-9]+)/);
+                if (match) {
+                    let exp1 = match[2].replace(/[\(\)]/g, ''); let exp2 = match[3].replace(/[\(\)]/g, '');
+                    return {
+                        newExpr: expr.replace(match[0], `${match[1]}^(${exp1}*${exp2})`),
+                        desc: `Potência de potência. Conservamos a base e multiplicamos os expoentes.`,
+                        prop: "Potência de Potência",
+                        propDesc: "Conserva-se a base e multiplicam-se os expoentes.",
+                        formula: "(a^m)^n = a^{m \\cdot n}"
+                    };
+                }
+
+                // Produto Mesma Base
+                match = expr.match(/([a-zA-Z0-9]+)\^(\([^)]+\)|[a-zA-Z0-9\-]+)\*([a-zA-Z0-9]+)\^(\([^)]+\)|[a-zA-Z0-9\-]+)/);
+                if (match && match[1] === match[3]) {
+                    let exp1 = match[2].replace(/[\(\)]/g, ''); let exp2 = match[4].replace(/[\(\)]/g, '');
+                    return {
+                        newExpr: expr.replace(match[0], `${match[1]}^(${exp1}+${exp2})`),
+                        desc: `Multiplicação de mesma base. Conservamos a base e somamos os expoentes.`,
+                        prop: "Produto de Potências",
+                        propDesc: "Repete-se a base e somam-se os expoentes.",
+                        formula: "a^m \\cdot a^n = a^{m+n}"
+                    };
+                }
+
+                // Divisão Mesma Base
+                match = expr.match(/([a-zA-Z0-9]+)\^(\([^)]+\)|[a-zA-Z0-9\-]+)\/([a-zA-Z0-9]+)\^(\([^)]+\)|[a-zA-Z0-9\-]+)/);
+                if (match && match[1] === match[3]) {
+                    let exp1 = match[2].replace(/[\(\)]/g, ''); let exp2 = match[4].replace(/[\(\)]/g, '');
+                    return {
+                        newExpr: expr.replace(match[0], `${match[1]}^(${exp1}-${exp2})`),
+                        desc: `Divisão de mesma base. Conservamos a base e subtraímos os expoentes.`,
+                        prop: "Quociente de Potências",
+                        propDesc: "Repete-se a base e subtraem-se os expoentes.",
+                        formula: "\\frac{a^m}{a^n} = a^{m-n}"
+                    };
+                }
+
+                // Logaritmo Potência
+                match = expr.match(/log_([a-zA-Z0-9]+)\(\1\^(\([^)]+\)|-?\d+)\)/);
+                if (match) {
+                    let exp = match[2].replace(/[\(\)]/g, ''); 
+                    return {
+                        newExpr: expr.replace(match[0], exp),
+                        desc: `O logaritmando é uma potência com a mesma base do log. O resultado é o expoente.`,
+                        prop: "Logaritmo da Potência",
+                        propDesc: "Se a base do logaritmo for igual à base da potência, o resultado é o expoente.",
+                        formula: "\\log_b(b^x) = x"
+                    };
+                }
+
+                // Fatorar Logaritmando
+                match = expr.match(/log_(\d+)\((\d+)\)/);
+                if (match) {
+                    let factors = this.getPerfectPowerForBase(match[2], match[1]);
+                    if (factors) {
+                         return {
+                            newExpr: expr.replace(match[0], `log_${match[1]}(${match[1]}^${factors.exp})`),
+                            desc: `Fatoramos o número ${match[2]} para ter a base do logaritmo (${match[1]}).`,
+                            prop: "Fatoração",
+                            propDesc: "Igualar a base do logaritmando à base do logaritmo simplifica a conta.",
+                            formula: "x = a^b"
+                         };
+                    }
+                }
+
+                // Produto Mesmo Expoente
+                match = expr.match(/(\d+)\^(\([^)]+\)|-?\d+)\*(\d+)\^(\([^)]+\)|-?\d+)/);
+                if (match && match[2] === match[4] && match[1] !== match[3]) {
+                    let exp = match[2].replace(/[\(\)]/g, '');
+                    return {
+                        newExpr: expr.replace(match[0], `(${match[1]}*${match[3]})^${exp}`),
+                        desc: `Multiplicação com mesmo expoente. Multiplicamos as bases.`,
+                        prop: "Produto (Mesmo Expoente)",
+                        propDesc: "Bases diferentes com mesmo expoente: multiplica as bases e mantém o expoente.",
+                        formula: "a^n \\cdot b^n = (a \\cdot b)^n"
+                    };
+                }
+
+                // Fatoração de Base na Potência
+                let powerRegex = /(\d+)\^(\([^)]+\)|-?\d+|[a-zA-Z]+)/g;
+                let pMatch;
+                while ((pMatch = powerRegex.exec(expr)) !== null) {
+                    let factors = this.getPerfectPower(pMatch[1]);
+                    if (factors) {
+                        return {
+                            newExpr: expr.substring(0, pMatch.index) + `(${factors.base}^${factors.exp})^${pMatch[2]}` + expr.substring(pMatch.index + pMatch[0].length),
+                            desc: `Fatoramos a base ${pMatch[1]} em primos: ${factors.base}^${factors.exp}.`,
+                            prop: "Fatoração de Base",
+                            propDesc: "Bases compostas podem ser fatoradas para revelar bases iguais.",
+                            formula: "x = a^b"
+                        };
+                    }
+                }
+
+                // Soma Logs
+                match = expr.match(/log_([a-zA-Z0-9]+)\(([^)]+)\)\+log_([a-zA-Z0-9]+)\(([^)]+)\)/);
+                if (match && match[1] === match[3]) {
+                    return {
+                        newExpr: expr.replace(match[0], `log_${match[1]}(${match[2]}*${match[4]})`),
+                        desc: `Soma de logaritmos na mesma base vira logaritmo da multiplicação.`,
+                        prop: "Logaritmo do Produto",
+                        propDesc: "Soma de logaritmos é igual ao logaritmo do produto.",
+                        formula: "\\log_b(x) + \\log_b(y) = \\log_b(x \\cdot y)"
+                    };
+                }
+
+                // Subtração Logs
+                match = expr.match(/log_([a-zA-Z0-9]+)\(([^)]+)\)\-log_([a-zA-Z0-9]+)\(([^)]+)\)/);
+                if (match && match[1] === match[3]) {
+                    return {
+                        newExpr: expr.replace(match[0], `log_${match[1]}(${match[2]}/${match[4]})`),
+                        desc: `Subtração de logaritmos na mesma base vira logaritmo da divisão.`,
+                        prop: "Logaritmo do Quociente",
+                        propDesc: "Diferença de logaritmos é igual ao logaritmo do quociente.",
+                        formula: "\\log_b(x) - \\log_b(y) = \\log_b(\\frac{x}{y})"
+                    };
+                }
+
+                // Aritmética em parênteses
+                match = expr.match(/\((-?\d+(?:\.\d+)?)([\+\-\*\/])(-?\d+(?:\.\d+)?)\)/);
+                if (match) {
+                    let a = parseFloat(match[1]); let op = match[2]; let b = parseFloat(match[3]);
+                    let res = op === '+' ? a+b : op === '-' ? a-b : op === '*' ? a*b : a/b;
+                    return {
+                        newExpr: expr.replace(match[0], res.toString()),
+                        desc: `Resolvemos a operação aritmética em parênteses.`,
+                        prop: "Aritmética",
+                        propDesc: "Resolução de cálculos simples.",
+                        formula: null
+                    };
+                }
+
+                // Aritmética Final Global
+                match = expr.match(/^(-?\d+)([\+\-\*\/])(-?\d+)$/);
+                if (match) {
+                    let a = parseFloat(match[1]); let op = match[2]; let b = parseFloat(match[3]);
+                    let res = op === '+' ? a+b : op === '-' ? a-b : op === '*' ? a*b : a/b;
+                    return {
+                        newExpr: res.toString(),
+                        desc: `Finalizamos a conta matemática.`,
+                        prop: null, propDesc: null, formula: null
+                    };
+                }
+
+                // Potência Final
+                match = expr.match(/(\d+)\^(-?\d+)/);
+                if (match) {
+                    let res = Math.pow(parseInt(match[1]), parseInt(match[2]));
+                    return {
+                        newExpr: expr.replace(match[0], res.toString()),
+                        desc: `Calculamos o valor final da potência.`,
+                        prop: "Potência",
+                        propDesc: "Multiplicações sucessivas.",
+                        formula: "a^n = a \\cdot a \\cdot ... \\cdot a"
+                    };
+                }
+
+                return null;
+            }
+        };
+
+        function formatToLatex(expr) {
+            let tex = expr;
+            tex = tex.replace(/\^\(([^)]+)\)/g, '^{$1}');
+            tex = tex.replace(/\^([a-zA-Z0-9\-]+)/g, '^{$1}');
+            tex = tex.replace(/log_([a-zA-Z0-9]+)\(([^)]+)\)/g, '\\log_{$1}($2)');
+            tex = tex.replace(/\*/g, ' \\cdot ');
+            tex = tex.replace(/\//g, ' \\div ');
+            return tex;
+        }
+
+        const mathInput = document.getElementById('mathInput');
+        const btnSolve = document.getElementById('btnSolve');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        document.querySelectorAll('.example-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                mathInput.value = btn.innerText;
+                startSolve();
+            });
+        });
+
+        mathInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') startSolve();
+        });
+        btnSolve.addEventListener('click', startSolve);
+
+        function startSolve() {
+            const expression = mathInput.value.trim();
+            errorMessage.classList.add('hidden-element');
+            if (!expression) return;
+
+            const steps = MathEngine.solve(expression);
+
+            if (steps.length <= 1) {
+                errorMessage.classList.remove('hidden-element');
+                document.getElementById('resultsSection').classList.add('hidden-element');
+                document.getElementById('sidebarSection').classList.add('hidden-element');
+                return;
+            }
+            renderResults(steps);
+        }
+
+        function renderResults(steps) {
+            const timelineContainer = document.getElementById('timelineContainer');
+            const propertiesContainer = document.getElementById('propertiesContainer');
+            timelineContainer.innerHTML = '';
+            propertiesContainer.innerHTML = '';
+            
+            const uniqueProperties = [];
+
+            steps.forEach((step, index) => {
+                const isLast = index === steps.length - 1;
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'relative pl-8';
+                
+                const badgeHTML = step.propertyUsed ? `
+                    <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold bg-theme-bg text-theme-primary border border-theme-light whitespace-nowrap self-start shadow-sm transition-colors">
+                        ${step.propertyUsed}
+                    </span>
+                ` : '';
+
+                const latexMath = formatToLatex(step.equationState);
+                const mathHTML = katex.renderToString(latexMath, { displayMode: true, throwOnError: false });
+
+                stepDiv.innerHTML = `
+                    <div class="absolute -left-[17px] top-1 w-8 h-8 bg-white rounded-full border-4 border-theme-border flex items-center justify-center z-10 transition-colors">
+                        ${isLast ? '<div class="w-2.5 h-2.5 bg-green-500 rounded-full"></div>' : `<span class="text-slate-500 font-bold text-xs">${index + 1}</span>`}
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl p-5 border border-theme-border shadow-sm hover:border-theme-primary transition-colors">
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
+                            <p class="font-medium leading-relaxed">${step.stepDescription}</p>
+                            ${badgeHTML}
+                        </div>
+                        <div class="bg-theme-page border border-theme-border rounded-xl p-5 flex items-center justify-center overflow-x-auto text-xl sm:text-2xl transition-colors">
+                            ${mathHTML}
+                        </div>
+                    </div>
+                `;
+                timelineContainer.appendChild(stepDiv);
+
+                if (step.propertyUsed && step.propertyDescription) {
+                    if (!uniqueProperties.find(p => p.propertyUsed === step.propertyUsed)) uniqueProperties.push(step);
+                }
+            });
+
+            document.getElementById('resultsSection').classList.remove('hidden-element');
+
+            if (uniqueProperties.length > 0) {
+                uniqueProperties.forEach(prop => {
+                    const propDiv = document.createElement('div');
+                    propDiv.className = 'bg-white border border-theme-light rounded-2xl p-4 shadow-sm hover:shadow-md transition-all';
+                    
+                    let formulaHTML = '';
+                    if (prop.propertyFormula) {
+                        const latexProp = katex.renderToString(prop.propertyFormula, { displayMode: false, throwOnError: false });
+                        formulaHTML = `
+                            <div class="bg-theme-bg/50 rounded-xl p-3 flex justify-center mb-3 text-theme-primary font-medium transition-colors">
+                                ${latexProp}
+                            </div>
+                        `;
+                    }
+
+                    propDiv.innerHTML = `
+                        <h4 class="text-sm font-bold mb-3 flex items-center gap-2">
+                            <div class="w-2 h-2 bg-theme-primary rounded-full transition-colors"></div>
+                            ${prop.propertyUsed}
+                        </h4>
+                        ${formulaHTML}
+                        <p class="text-xs text-slate-600 leading-relaxed text-justify">
+                            ${prop.propertyDescription}
+                        </p>
+                    `;
+                    propertiesContainer.appendChild(propDiv);
+                });
+                document.getElementById('sidebarSection').classList.remove('hidden-element');
+            } else {
+                document.getElementById('sidebarSection').classList.add('hidden-element');
+            }
+        }
+    </script>
+</body>
+</html>
